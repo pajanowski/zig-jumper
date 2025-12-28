@@ -1,0 +1,2 @@
+# statePath,variableType,uiElementType,Display
+jumper.gravity,float,SLIDER,Gravity
