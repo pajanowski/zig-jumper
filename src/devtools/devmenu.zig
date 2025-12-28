@@ -80,8 +80,12 @@ pub fn DevMenu(comptime T: type) type {
             // }
             for (self.menuItems) |menuItem| {
                 var label_buf: [64]u8 = undefined;
-                const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuItem.float.menuProperties.displayValuePrefix, menuItem.float.valuePtr.*}) catch "Gravity";
-                _ = rg.sliderBar( menuItem.float.menuProperties.bounds, text, "", menuItem.float.valuePtr, -400, 0 );
+                if (menuItem.float.menuProperties.displayValuePrefix.len == 0) {
+                    const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuItem.float.menuProperties.displayValuePrefix, menuItem.float.valuePtr.*}) catch "Gravity";
+                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, text, "", menuItem.float.valuePtr, -400, 0 );
+                } else {
+                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, "", "", menuItem.float.valuePtr, -400, 0 );
+                }
             }
 
             // if (fieldPtrByPathExpect(f32, self.state, "jumper.jumpPower")) |p_jumpPower| {
