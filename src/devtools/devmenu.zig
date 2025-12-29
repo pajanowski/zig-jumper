@@ -39,17 +39,23 @@ pub fn DevMenu(comptime T: type) type {
             //     std.log.err("failed, {}", .{err});
             //     std.array_list.Managed(*mi.ItemDef);
             // };
-            if (readYaml("src/devtools/menu.yaml", allocator)) {
-            } else |err| {
-                std.log.err("Failed to parse menu.yml: {any}", .{err});
-            }
-            const filePath = "src/devtools/menu.txt";
-            var menuItems: []*mi.MenuItem = undefined;
-            if (GetMenuItemsFromFile(filePath, state, allocator)) |menu_items| {
-                menuItems = menu_items;
-            } else |err| {
+            const filePath = "src/devtools/menu.yaml";
+            // var menuItems: []*mi.MenuItem = &.{};
+            // if (GetMenuItemsFromFile(filePath, state, allocator)) |menu_items| {
+            //     menuItems = menu_items;
+            // } else |err| {
+            //     std.log.err("Failed getting menu items from file {s}: {any}", .{filePath, err});
+            // }
+            const menuItems = GetMenuItemsFromFile(filePath, state, allocator) catch |err| {
                 std.log.err("Failed getting menu items from file {s}: {any}", .{filePath, err});
-            }
+                return Self{
+                    .state = state,
+                    .windowWidth = windowWidth,
+                    .windowHeight = windowHeight,
+                    .menuItems = &.{},
+                    .allocator = allocator,
+                };
+            };
             // if (fieldPtrByPathExpect(f32, state, "jumper.gravity")) |jumperGravityPtr| {
             //     menuItems.append(mi.MenuItem{
             //         .float = mi.FloatMenuItem.init(
@@ -70,30 +76,6 @@ pub fn DevMenu(comptime T: type) type {
                 .menuItems = menuItems,
                 .allocator = allocator
             };
-        }
-
-
-        fn readYaml(filePath: []const u8, allocator: std.mem.Allocator) !void {
-            const yml_location = filePath;
-
-            const yml_path = try std.fs.cwd().realpathAlloc(
-                allocator,
-                yml_location,
-            );
-            defer allocator.free(yml_path);
-
-            var ymlz = try Ymlz(mi.YamlMenuDef).init(allocator);
-            const result = try ymlz.loadFile(yml_path);
-            defer ymlz.deinit(result);
-
-            // We can print and see that all the fields have been loaded
-            std.debug.print("Experiment: {any}\n", .{result});
-            // Lets try accessing the first field and printing it
-            std.debug.print("First: {any}\n", .{result});
-            // same goes for the array that we've defined `foods`
-            for (result.itemDefs) |itemDef| {
-                std.debug.print("{any}", .{itemDef});
-            }
         }
 
         pub fn draw(self: Self) void {
@@ -131,9 +113,8 @@ pub fn DevMenu(comptime T: type) type {
             state: *T,
             allocator: std.mem.Allocator
         ) !*MenuItem {
-            const itemDef = itemDefPtr.*;
-            const menuItemTypeString: []const u8 = itemDef.menuItemTypeString;
-            const statePath: []const u8 = itemDef.statePath;
+            const menuItemTypeString: []u8 = itemDefPtr.menuItemType;
+            const statePath: []u8 = itemDefPtr.statePath;
             std.log.info("statePath {s}", .{statePath});
             std.log.info("menuItemTypeString {s}", .{menuItemTypeString});
 
@@ -204,7 +185,7 @@ pub fn DevMenu(comptime T: type) type {
                 try ret.append(menuItem);
                 y = ITEM_HEIGHT + ITEM_PADDING;
             }
-            return ret.items;
+            return try ret.toOwnedSlice();
         }
 
         pub fn GetMenuItemsFromFile(
@@ -212,11 +193,11 @@ pub fn DevMenu(comptime T: type) type {
             state: *T,
             allocator: std.mem.Allocator
         ) ![]*MenuItem {
-            const menuItems = try mi.GetItemDefsFromFile(filePath, allocator);
+            const menuDef = try mi.GetMenuDefFromFile(filePath, allocator);
+            defer menuDef.deinit(allocator);
 
-            return BuildMenuItems(menuItems, state, allocator);
+            return BuildMenuItems(menuDef.itemDefs, state, allocator);
         }
-
     };
 }
 
@@ -286,32 +267,64 @@ fn fieldPtrByPathExpectInner(comptime Leaf: type, comptime S: type, base_ptr: *S
 
 test "devmenu struct is correct" {
     const TestState = struct {
-        x: f32,
-        y: f32,
+        jumper: struct {
+            gravity: f32,
+            jumpPower: f32,
+        },
     };
-    var state = TestState{.x = 1, .y = 2};
-    const devMenu = DevMenu(TestState).init(&state, 100, 200);
-
-    devMenu.draw();
+    var state = TestState{ .jumper = .{ .gravity = 1, .jumpPower = 2 } };
+    const devMenu = DevMenu(TestState).init(&state, 100, 200, std.testing.allocator);
+    defer {
+        for (devMenu.menuItems) |item| {
+            switch (item.*) {
+                .int => |val| std.testing.allocator.destroy(val),
+                .float => |val| std.testing.allocator.destroy(val),
+                .string => |val| std.testing.allocator.destroy(val),
+                .none => {},
+            }
+            std.testing.allocator.destroy(item);
+        }
+        std.testing.allocator.free(devMenu.menuItems);
+    }
 }
 
 const testing = std.testing;
 
 test "Get IntMenuItem and access field" {
-    var intValue: i32 = 1234;
-    const menuItemPtr = mi.MenuItemValuePtr{ .int = &intValue };
-    const menuItem = mi.GetMenuItem(ItemDef{
-        .menuItemTypeString = "int",
-        .statePath = "player.score",
-        .valuePtr = menuItemPtr,
-    }, Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 });
+    const intValue: i32 = 1234;
+    const TestState = struct {
+        player: struct {
+            score: i32,
+        },
+    };
+    var state = TestState{ .player = .{ .score = 1234 } };
+    _ = intValue;
+
+    var itemDef = ItemDef{
+        .menuItemType = @constCast("int"),
+        .statePath = @constCast("player.score"),
+        .elementType = @constCast("SLIDER"),
+        .bounds = Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 },
+        .displayValuePrefix = @constCast("Score"),
+    };
+
+    const menuItem = try DevMenu(TestState).GetMenuItem(
+        &itemDef,
+        Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 },
+        &state,
+        std.testing.allocator,
+    );
+    defer {
+        std.testing.allocator.destroy(menuItem.int);
+        std.testing.allocator.destroy(menuItem);
+    }
 
     // Using the new helper functions
     try testing.expect(menuItem.isInt());
     try testing.expectEqual(MenuItemType.int, menuItem.getType());
 
     // 1. Using switch to access the active field and its value (Preferred)
-    switch (menuItem) {
+    switch (menuItem.*) {
         .int => |intItem| {
             try testing.expectEqual(@as(i32, 1234), intItem.valuePtr.*);
         },

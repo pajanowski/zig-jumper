@@ -74,13 +74,18 @@ pub fn main() anyerror!void {
     var state = GameState{
         .jumper = &jumper
     };
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer {
-        const leaked = gpa.deinit();
-        if (leaked != std.heap.Check.leak) {
-            std.debug.print("Memory leaked!\n", .{});
-        }
-    }
+    const gpaConfig = std.heap.DebugAllocatorConfig{
+        .verbose_log = false,
+    };
+    var gpa = std.heap.DebugAllocator(gpaConfig){};
+    const allocator = gpa.allocator();
+    // const allocator = std.heap.page_allocator;
+    // defer {
+        // const leaked = allocator.deinit();
+        // if (leaked != std.heap.Check.leak) {
+            // std.debug.print("Memory leaked!\n", .{});
+        // }
+    // }
     rl.initWindow(screenWidth, screenHeight, "raylib-zig [core] example - basic window");
     defer rl.closeWindow(); // Close window and OpenGL context
 
@@ -121,7 +126,7 @@ pub fn main() anyerror!void {
         &state,
         PLAYFIELD_HEIGHT,
         PLAYFIELD_WIDTH,
-        gpa.allocator()
+        allocator
     );
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key

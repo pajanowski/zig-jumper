@@ -57,6 +57,7 @@ pub fn build(b: *std.Build) void {
     // import this module can also `@import("raylib")`/`@import("raygui")`.
     mod.addImport("raylib", raylib);
     mod.addImport("raygui", raygui);
+    mod.addImport("ymlz", ymlz.module("root"));
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function

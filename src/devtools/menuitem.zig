@@ -4,6 +4,8 @@ const rl = @import("raylib");
 const Vector2 = rl.Vector2;
 const Rectangle = rl.Rectangle;
 
+const Ymlz = @import("ymlz").Ymlz;
+
 pub const UiElementType = enum {
     SLIDER,
 };
@@ -96,64 +98,80 @@ pub const MenuItem = union(MenuItemType) {
 };
 
 pub const ItemDef = struct {
-    menuItemTypeString: []u8,
+    menuItemType: []u8,
     statePath: []u8,
-};
-
-// rename
-pub const YamlItemDef = struct {
-    elementType: []const u8,
+    elementType: []u8,
     bounds: Rectangle, // Not implemented
-    statePath: []const u8, // NotImplemented
-    displayValuePrefix: []const u8,
-    menuItemType: []const u8,
+    displayValuePrefix: []u8,
 };
 
-pub const YamlMenuDef = struct {
-    itemDefs: []YamlItemDef
-};
+pub const MenuDef = struct {
+    itemDefs: []*ItemDef,
 
-pub fn GetItemDefsFromFile(filePath: []const u8, allocator: std.mem.Allocator) ![]*ItemDef {
-    var ret = std.array_list.Managed(*ItemDef).init(allocator);
-    const file = try std.fs.cwd().openFile(filePath, .{});
-    defer file.close();
-
-    var file_buffer: [1024]u8 = undefined;
-    var reader = file.reader(&file_buffer);
-
-    var line_no: usize = 0;
-    while (try reader.interface.takeDelimiter('\n')) |line| {
-        line_no += 1;
-        std.debug.print("{d}--{s}\n", .{ line_no, line });
-        if (line[0] == '#') {
-            continue;
+    pub fn deinit(self: *MenuDef, allocator: std.mem.Allocator) void {
+        for (self.itemDefs) |itemDef| {
+            allocator.free(itemDef.menuItemType);
+            allocator.free(itemDef.statePath);
+            allocator.free(itemDef.elementType);
+            allocator.free(itemDef.displayValuePrefix);
+            allocator.destroy(itemDef);
         }
+        allocator.free(self.itemDefs);
+        allocator.destroy(self);
+    }
+};
 
-        var it = std.mem.splitAny(u8, line, ",");
-        const itemDef = try allocator.create(ItemDef);
-        const statePathFromIt = it.next() orelse "";
-        itemDef.*.statePath = try allocator.alloc(u8, statePathFromIt.len);
-        @memcpy(itemDef.*.statePath, statePathFromIt);
-        // jumper.gravity,float,SLIDER,Gravity
 
-        const menuItemTypeString = it.next() orelse "";
-        itemDef.*.menuItemTypeString = try allocator.alloc(u8, menuItemTypeString.len);
-        @memcpy(itemDef.*.menuItemTypeString, menuItemTypeString);
+fn duplicateString(string: []const u8, allocator: std.mem.Allocator) ![]u8 {
+    // std.debug.print("{s}:{d}\n", .{@src().fn_name, @src().line});
+    // std.debug.print("{s}:{d} {s} len: {d}\n", .{@src().fn_name, @src().line, string, string.len});
+    // std.debug.print("{s}:{d}\n", .{@src().fn_name, @src().line});
+    if(allocator.alloc(u8, string.len)) |stringCopy| {
+        @memcpy(stringCopy, string);
+        return stringCopy;
+    } else |err| {
+        std.log.err("{s}:{d} Failed to copy string {s}\n", .{@src().fn_name, @src().line, string});
+        return err;
+    }
+}
 
-        // TODO here is where I need to decide what to do
-        // Current, the valuePtr union is always coming back string which is probably because its never
-        // getting initialized.
-        //
-        // It should be getting initialized based on the field type
+pub fn GetMenuDefFromFile(filePath: []const u8, allocator: std.mem.Allocator) !*MenuDef {
+    const IntermediateItemDef = struct {
+        menuItemType: []const u8,
+        statePath: []const u8,
+        elementType: []const u8,
+        displayValuePrefix: []const u8,
+    };
+    const IntermediateMenuDef = struct {
+        itemDefs: []IntermediateItemDef
+    };
+    const yml_location = filePath;
 
-        // itemDef.*.valuePtr = try allocator.create(MenuItemValuePtr);
-        // itemDef.*.valuePtr.
-        _ = it.next(); // ui type,
-        _ = it.next(); // label
-        try ret.append(itemDef);
+    const yml_path = try std.fs.cwd().realpathAlloc(
+        allocator,
+        yml_location,
+    );
+    defer allocator.free(yml_path);
+
+    var ymlz = try Ymlz(IntermediateMenuDef).init(allocator);
+    const result = try ymlz.loadFile(yml_path);
+    defer ymlz.deinit(result);
+
+    const ret = try allocator.create(MenuDef);
+
+    ret.*.itemDefs = try allocator.alloc(*ItemDef, result.itemDefs.len);
+
+    for (result.itemDefs, 0..) |itemDef, index| {
+        const newItemDef = try allocator.create(ItemDef);
+        newItemDef.displayValuePrefix = try duplicateString(itemDef.displayValuePrefix, allocator);
+        newItemDef.elementType = try duplicateString(itemDef.elementType, allocator);
+        newItemDef.menuItemType = try duplicateString(itemDef.menuItemType, allocator);
+        newItemDef.statePath = try duplicateString(itemDef.statePath, allocator);
+        newItemDef.bounds = .{ .x = 0, .y = 0, .width = 0, .height = 0 };
+        ret.*.itemDefs[index] = newItemDef;
     }
 
-    return ret.items;
+    return ret;
 }
 
 pub const MenuItemTypeError = error{MenuItemTypeUnknown};
@@ -163,7 +181,7 @@ const expect = testing.expect;
 
 test "IntMenuItem can build" {
     var intValue: i32 = 420;
-    const menuItem = IntMenuItem.init(UiElementType.SLIDER, &intValue, Rectangle{ .width = 1, .height = 2, .y = 3, .x = 4 }, "player.points");
+    const menuItem = IntMenuItem.init(UiElementType.SLIDER, &intValue, Rectangle{ .width = 1, .height = 2, .y = 3, .x = 4 }, "player.points", "player.points");
     const returnedIntValue = menuItem.valuePtr.*;
 
     try testing.expectEqual(intValue, returnedIntValue);
