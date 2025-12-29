@@ -13,6 +13,8 @@ const IntMenuItem = mi.IntMenuItem;
 const FloatMenuItem = mi.FloatMenuItem;
 const StringMenuItem = mi.StringMenuItem;
 
+const Ymlz = @import("ymlz").Ymlz;
+
 pub const DevMenuError = error{
     StateFieldNotFound
 };
@@ -37,6 +39,10 @@ pub fn DevMenu(comptime T: type) type {
             //     std.log.err("failed, {}", .{err});
             //     std.array_list.Managed(*mi.ItemDef);
             // };
+            if (readYaml("src/devtools/menu.yaml", allocator)) {
+            } else |err| {
+                std.log.err("Failed to parse menu.yml: {any}", .{err});
+            }
             const filePath = "src/devtools/menu.txt";
             var menuItems: []*mi.MenuItem = undefined;
             if (GetMenuItemsFromFile(filePath, state, allocator)) |menu_items| {
@@ -64,6 +70,30 @@ pub fn DevMenu(comptime T: type) type {
                 .menuItems = menuItems,
                 .allocator = allocator
             };
+        }
+
+
+        fn readYaml(filePath: []const u8, allocator: std.mem.Allocator) !void {
+            const yml_location = filePath;
+
+            const yml_path = try std.fs.cwd().realpathAlloc(
+                allocator,
+                yml_location,
+            );
+            defer allocator.free(yml_path);
+
+            var ymlz = try Ymlz(mi.YamlMenuDef).init(allocator);
+            const result = try ymlz.loadFile(yml_path);
+            defer ymlz.deinit(result);
+
+            // We can print and see that all the fields have been loaded
+            std.debug.print("Experiment: {any}\n", .{result});
+            // Lets try accessing the first field and printing it
+            std.debug.print("First: {any}\n", .{result});
+            // same goes for the array that we've defined `foods`
+            for (result.itemDefs) |itemDef| {
+                std.debug.print("{any}", .{itemDef});
+            }
         }
 
         pub fn draw(self: Self) void {

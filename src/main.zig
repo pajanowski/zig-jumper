@@ -15,6 +15,23 @@ const JUMP_HEIGHT: f32 = 40;
 const GRAVITY: f32 = -20;
 const rand = std.crypto.random;
 
+const Experiment = struct {
+    first: i32,
+    second: i64,
+    name: []const u8,
+    fourth: f32,
+    foods: [][]const u8,
+    inner: struct {
+        abcd: i32,
+        k: u8,
+        l: []const u8,
+        another: struct {
+            new: f32,
+            stringed: []const u8,
+        },
+    },
+};
+
 pub fn updateJumper(jumper: *Jumper) void {
     if (rl.isKeyDown(rl.KeyboardKey.right)) {
         jumper.rec.x += 1;

@@ -1,0 +1,9 @@
+itemDefs:
+  - elementType: SLIDER
+    statePath: jumper.gravity
+    displayValuePrefix: Gravity
+    menuItemType: float
+  - elementType: SLIDER
+    statePath: jumper.jumpPower
+    displayValuePrefix: Jump
+    menuItemType: float

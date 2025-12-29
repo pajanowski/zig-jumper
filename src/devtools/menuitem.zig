@@ -100,6 +100,19 @@ pub const ItemDef = struct {
     statePath: []u8,
 };
 
+// rename
+pub const YamlItemDef = struct {
+    elementType: []const u8,
+    bounds: Rectangle, // Not implemented
+    statePath: []const u8, // NotImplemented
+    displayValuePrefix: []const u8,
+    menuItemType: []const u8,
+};
+
+pub const YamlMenuDef = struct {
+    itemDefs: []YamlItemDef
+};
+
 pub fn GetItemDefsFromFile(filePath: []const u8, allocator: std.mem.Allocator) ![]*ItemDef {
     var ret = std.array_list.Managed(*ItemDef).init(allocator);
     const file = try std.fs.cwd().openFile(filePath, .{});
