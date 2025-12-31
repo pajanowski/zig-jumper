@@ -149,7 +149,6 @@ pub fn main() anyerror!void {
             if (platform.rec.y > camera.target.y + PLAYFIELD_HEIGHT / 2) {
                 try platformsToRemove.append(index);
                 try platforms.append(getNextPlatform(&jumper, &platforms.getLast()));
-                std.debug.print("Removing platform\n", .{});
             }
         }
         for (platformsToRemove.items) |remove| {

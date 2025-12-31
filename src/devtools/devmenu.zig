@@ -35,17 +35,9 @@ pub fn DevMenu(comptime T: type) type {
             windowWidth: f32,
             allocator: std.mem.Allocator
         ) Self {
-            // const itemDefs = mi.GetItemDefsFromFile("src/devtools/menu.txt", allocator) catch |err| {
-            //     std.log.err("failed, {}", .{err});
-            //     std.array_list.Managed(*mi.ItemDef);
-            // };
+
             const filePath = "src/devtools/menu.yaml";
-            // var menuItems: []*mi.MenuItem = &.{};
-            // if (GetMenuItemsFromFile(filePath, state, allocator)) |menu_items| {
-            //     menuItems = menu_items;
-            // } else |err| {
-            //     std.log.err("Failed getting menu items from file {s}: {any}", .{filePath, err});
-            // }
+
             const menuItems = GetMenuItemsFromFile(filePath, state, allocator) catch |err| {
                 std.log.err("Failed getting menu items from file {s}: {any}", .{filePath, err});
                 return Self{
@@ -56,19 +48,6 @@ pub fn DevMenu(comptime T: type) type {
                     .allocator = allocator,
                 };
             };
-            // if (fieldPtrByPathExpect(f32, state, "jumper.gravity")) |jumperGravityPtr| {
-            //     menuItems.append(mi.MenuItem{
-            //         .float = mi.FloatMenuItem.init(
-            //             mi.UiElementType.SLIDER,
-            //             jumperGravityPtr,
-            //             .{ .x = 50, .y = 1, .width = 120, .height = 10 },
-            //             "Gravity: ",
-            //             "jumper.gravity"
-            //         )
-            //     }) catch {
-            //         std.log.err("asdf ", .{});
-            //     };
-            // }
             return Self{
                 .state = state,
                 .windowHeight = windowHeight,
@@ -83,29 +62,35 @@ pub fn DevMenu(comptime T: type) type {
                 0, 0,
                 self.windowWidth, self.windowHeight
             );
-            // _ = rg.windowBox(bounds, "dev menu");
-
-            // if () |p_gravity| {
-            //     var label_buf: [64]u8 = undefined;
-            //     const text = std.fmt.bufPrintZ(&label_buf, "Gravity: {d:.1}", .{p_gravity.*}) catch "Gravity";
-            //     _ = rg.sliderBar( .{ .x = 50, .y = 1, .width = 120, .height = 10 }, text, "", p_gravity, -400, 0 );
-            // }
             for (self.menuItems) |menuItem| {
-                var label_buf: [64]u8 = undefined;
-                const range = menuItem.float.range;
-                if (menuItem.float.menuProperties.displayValuePrefix.len > 0) {
-                    const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuItem.float.menuProperties.displayValuePrefix, menuItem.float.valuePtr.*}) catch "Gravity";
-                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, text, "", menuItem.float.valuePtr, range.lower, range.upper);
-                } else {
-                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, "", "", menuItem.float.valuePtr, range.lower, range.upper);
+                switch(menuItem.*) {
+                    .float => |active| {
+                        drawElements(menuItem, active.valuePtr);
+                    },
+                    .int => std.log.warn("Int not implemented yet", .{}),
+                    .string => std.log.warn("String not implemented yet", .{}),
                 }
             }
+        }
 
-            // if (fieldPtrByPathExpect(f32, self.state, "jumper.jumpPower")) |p_jumpPower| {
-            //     var label_buf: [64]u8 = undefined;
-            //     const text = std.fmt.bufPrintZ(&label_buf, "Power: {d:.1}", .{p_jumpPower.*}) catch "Gravity";
-            //     _ = rg.sliderBar( .{ .x = 50, .y = 11, .width = 120, .height = 10 }, text, "", p_jumpPower, 0, 400 );
-            // }
+        fn drawElements(menuItem: *mi.MenuItem, valuePtr: anytype) void {
+            const menuProperties = menuItem.getMenuProperties();
+            switch(menuProperties.elementType) {
+                .SLIDER => {
+                    const range = menuItem.getRange();
+                    drawSlideBar(menuProperties, range, valuePtr);
+                }
+            }
+        }
+
+        fn drawSlideBar(menuProperties: mi.MenuProperties, range: mi.Range, valuePtr: anytype) void {
+            var label_buf: [64]u8 = undefined;
+            if (menuProperties.displayValuePrefix.len > 0) {
+                const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuProperties.displayValuePrefix, valuePtr.*}) catch "Gravity";
+                _ = rg.sliderBar( menuProperties.bounds, text, "", valuePtr, range.lower, range.upper);
+            } else {
+                _ = rg.sliderBar( menuProperties.bounds, "", "", valuePtr, range.lower, range.upper);
+            }
         }
 
         pub fn deinit(self: *Self) void {
@@ -144,6 +129,7 @@ pub fn DevMenu(comptime T: type) type {
                 if(fieldPtrByPathExpect(i32, state, statePath)) |valuePtr| {
                     ret.int.*.valuePtr = valuePtr;
                 } else {
+                    std.log.err("State path {s} not found or not parseable to i32", .{statePath});
                     return DevMenuError.StateFieldNotFound;
                 }
             },
@@ -157,6 +143,7 @@ pub fn DevMenu(comptime T: type) type {
                 if(fieldPtrByPathExpect(f32, state, statePath)) |valuePtr| {
                     ret.float.*.valuePtr = valuePtr;
                 } else {
+                    std.log.err("State path {s} not found or not parseable to f32", .{statePath});
                     return DevMenuError.StateFieldNotFound;
                 }
             },
@@ -169,10 +156,10 @@ pub fn DevMenu(comptime T: type) type {
                 if(fieldPtrByPathExpect([]const u8, state, statePath)) |valuePtr| {
                     ret.string.*.valuePtr = valuePtr;
                 } else {
+                    std.log.err("State path {s} not found or not parseable to string", .{statePath});
                     return DevMenuError.StateFieldNotFound;
                 }
             },
-            else => {},
             }
             return ret;
         }
@@ -188,16 +175,21 @@ pub fn DevMenu(comptime T: type) type {
         ) ![]*MenuItem {
             var ret = std.array_list.Managed(*MenuItem).init(allocator);
             var y: f32 = ITEM_PADDING;
+            var menuError: ?anyerror = undefined;
             for (itemDefs) |itemDef| {
-                const menuItem = try GetMenuItem(
+                if(GetMenuItem(
                     itemDef,
                     Rectangle{ .width = ITEM_WIDTH, .height = ITEM_HEIGHT, .x = ITEM_PADDING + 20, .y = y },
                     state,
                     allocator
-                );
-                try ret.append(menuItem);
+                )) |menuItem| {
+                    try ret.append(menuItem);
+                } else |err| {
+                    menuError = err;
+                }
                 y = ITEM_HEIGHT + ITEM_PADDING;
             }
+
             return try ret.toOwnedSlice();
         }
 

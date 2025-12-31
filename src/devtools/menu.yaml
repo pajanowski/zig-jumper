@@ -13,3 +13,14 @@ itemDefs:
     range:
       upper: 1000
       lower: 0
+  - elementType: SLIDER
+    statePath: jumper.jumpPower
+    displayValuePrefix: Jump
+    menuItemType: int
+    range:
+      upper: 1000
+      lower: 0
+  - elementType: SLIDER
+    statePath: jumper.jumpPower
+    displayValuePrefix: Jump
+    menuItemType: string

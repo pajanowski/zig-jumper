@@ -10,9 +10,9 @@ pub const UiElementType = enum {
     SLIDER,
 };
 
-pub const MenuItemType = enum { int, float, string, none };
+pub const MenuItemType = enum { int, float, string };
 
-pub const MenuItemValuePtr = union(MenuItemType) { int: *i32, float: *f32, string: *[]const u8, none: void };
+pub const MenuItemValuePtr = union(MenuItemType) { int: *i32, float: *f32, string: *[]const u8 };
 
 pub const Range = struct {
     upper: f32,
@@ -32,7 +32,7 @@ pub const Range = struct {
     }
 };
 
-const BaseMenuItem = struct {
+pub const MenuProperties = struct {
     elementType: UiElementType,
     bounds: Rectangle, // Not implemented
     statePath: []const u8, // NotImplemented
@@ -45,7 +45,7 @@ const BaseMenuItem = struct {
         displayValuePrefix: []const u8,
         statePath: []const u8,
     ) Self {
-        return BaseMenuItem{ .elementType = elementType, .bounds = bounds, .displayValuePrefix = displayValuePrefix, .statePath = statePath };
+        return MenuProperties{ .elementType = elementType, .bounds = bounds, .displayValuePrefix = displayValuePrefix, .statePath = statePath };
     }
 
     pub fn deinit(self: Self, allocator: std.mem.Allocator) void {
@@ -56,7 +56,7 @@ const BaseMenuItem = struct {
 
 pub const IntMenuItem = struct {
     valuePtr: *i32,
-    menuProperties: BaseMenuItem,
+    menuProperties: MenuProperties,
     range: Range,
 
     const Self = @This();
@@ -64,7 +64,7 @@ pub const IntMenuItem = struct {
         return IntMenuItem{
             .valuePtr = valuePtr,
             .range = range,
-            .menuProperties = BaseMenuItem.init(elementType, bounds, displayValuePrefix, statePath),
+            .menuProperties = MenuProperties.init(elementType, bounds, displayValuePrefix, statePath),
         };
     }
 
@@ -76,7 +76,7 @@ pub const IntMenuItem = struct {
 
 pub const FloatMenuItem = struct {
     valuePtr: *f32,
-    menuProperties: BaseMenuItem,
+    menuProperties: MenuProperties,
     range: Range,
 
     const Self = @This();
@@ -84,7 +84,7 @@ pub const FloatMenuItem = struct {
         return FloatMenuItem{
             .valuePtr = valuePtr,
             .range = range,
-            .menuProperties = BaseMenuItem.init(elementType, bounds, displayValuePrefix, statePath),
+            .menuProperties = MenuProperties.init(elementType, bounds, displayValuePrefix, statePath),
         };
     }
 
@@ -96,13 +96,13 @@ pub const FloatMenuItem = struct {
 
 pub const StringMenuItem = struct {
     valuePtr: *[]const u8,
-    menuProperties: BaseMenuItem,
+    menuProperties: MenuProperties,
 
     const Self = @This();
     pub fn init(elementType: UiElementType, valuePtr: *[]const u8, bounds: Rectangle, displayValuePrefix: []const u8, statePath: []const u8) Self {
         return StringMenuItem{
             .valuePtr = valuePtr,
-            .menuProperties = BaseMenuItem.init(elementType, bounds, displayValuePrefix, statePath),
+            .menuProperties = MenuProperties.init(elementType, bounds, displayValuePrefix, statePath),
         };
     }
 
@@ -116,7 +116,6 @@ pub const MenuItem = union(MenuItemType) {
     int: *IntMenuItem,
     float: *FloatMenuItem,
     string: *StringMenuItem,
-    none: void,
 
     pub fn getType(self: MenuItem) MenuItemType {
         return @as(MenuItemType, self);
@@ -134,8 +133,23 @@ pub const MenuItem = union(MenuItemType) {
         return self == .string;
     }
 
-    pub fn isNone(self: MenuItem) bool {
-        return self == .none;
+    pub fn getMenuProperties(self: *MenuItem) MenuProperties {
+        switch (self.*) {
+            .int => |active| return active.*.menuProperties,
+            .float => |active| return active.*.menuProperties,
+            .string => |active| return active.*.menuProperties,
+        }
+    }
+
+    pub fn getRange(self: *MenuItem) Range {
+        switch (self.*) {
+            .int => |active| return active.*.range,
+            .float => |active| return active.*.range,
+            .string => {
+                std.log.err("String menuItem does not have range", .{});
+                unreachable;
+            },
+        }
     }
 
     pub fn deinit(self: *MenuItem, allocator: std.mem.Allocator) void {
@@ -143,19 +157,10 @@ pub const MenuItem = union(MenuItemType) {
             .int => |val| val.deinit(allocator),
             .float => |val| val.deinit(allocator),
             .string => |val| val.deinit(allocator),
-            .none => {},
         }
         allocator.destroy(self);
     }
 };
-
-// pub const ItemDef = struct {
-//     menuItemType: []u8,
-//     statePath: []u8,
-//     elementType: []u8,
-//     bounds: Rectangle, // Not implemented
-//     displayValuePrefix: []u8,
-// };
 
 pub const MenuDef = struct {
     itemDefs: []ItemDef,
