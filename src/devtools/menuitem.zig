@@ -158,7 +158,7 @@ pub const MenuItem = union(MenuItemType) {
 // };
 
 pub const MenuDef = struct {
-    itemDefs: []*ItemDef,
+    itemDefs: []ItemDef,
 
     pub fn deinit(self: *MenuDef, allocator: std.mem.Allocator) void {
         for (self.itemDefs) |itemDef| {
@@ -174,92 +174,14 @@ pub const MenuDef = struct {
 };
 
 
-fn duplicateString(string: []const u8, allocator: std.mem.Allocator) ![]u8 {
-    // std.debug.print("{s}:{d}\n", .{@src().fn_name, @src().line});
-    // std.debug.print("{s}:{d} {s} len: {d}\n", .{@src().fn_name, @src().line, string, string.len});
-    // std.debug.print("{s}:{d}\n", .{@src().fn_name, @src().line});
-    if(allocator.alloc(u8, string.len)) |stringCopy| {
-        @memcpy(stringCopy, string);
-        return stringCopy;
-    } else |err| {
-        std.log.err("{s}:{d} Failed to copy string {s}\n", .{@src().fn_name, @src().line, string});
-        return err;
-    }
-}
-
-const IntermediateItemDef = struct {
+pub const ItemDef = struct {
     menuItemType: []const u8,
     statePath: []const u8,
     elementType: []const u8,
-    displayValuePrefix: []const u8,
-    range: Range
-};
-
-const IntermediateMenuDef = struct {
-    itemDefs: []IntermediateItemDef
-};
-
-// ... existing code ...
-pub const ItemDef = struct {
-    menuItemType: []u8,
-    statePath: []u8,
-    elementType: []u8,
     bounds: Rectangle,
-    displayValuePrefix: []u8,
+    displayValuePrefix: []const u8,
     range: Range,
-
-    pub fn fromIntermediate(allocator: std.mem.Allocator, source: IntermediateItemDef) !*ItemDef {
-        const self = try allocator.create(ItemDef);
-        errdefer allocator.destroy(self);
-
-        // Initialize with defaults to handle missing fields in source
-        self.* = .{
-            .menuItemType = &.{},
-            .statePath = &.{},
-            .elementType = &.{},
-            .bounds = .{ .x = 0, .y = 0, .width = 0, .height = 0 },
-            .displayValuePrefix = &.{},
-            .range = .{ .lower = 0, .upper = 1}
-        };
-
-        // Use comptime reflection to safely copy matching fields
-        inline for (std.meta.fields(@TypeOf(source))) |f| {
-            if (@hasField(ItemDef, f.name)) {
-                const val = @field(source, f.name);
-                if (@TypeOf(val) == []const u8) {
-                    @field(self, f.name) = try allocator.dupe(u8, val);
-                } else if (@TypeOf(val) == Range) {
-                    @field(self, f.name) = val;
-                }
-            }
-        }
-        return self;
-    }
 };
-
-pub fn GetMenuDefFromFile(filePath: []const u8, allocator: std.mem.Allocator) !*MenuDef {
-    const yml_location = filePath;
-
-    const yml_path = try std.fs.cwd().realpathAlloc(
-        allocator,
-        yml_location,
-    );
-    defer allocator.free(yml_path);
-
-    var ymlz = try Ymlz(IntermediateMenuDef).init(allocator);
-    const result = try ymlz.loadFile(yml_path);
-    defer ymlz.deinit(result);
-
-    const ret = try allocator.create(MenuDef);
-    errdefer allocator.destroy(ret);
-
-    ret.itemDefs = try allocator.alloc(*ItemDef, result.itemDefs.len);
-    for (result.itemDefs, 0..) |item, i| {
-        ret.itemDefs[i] = try ItemDef.fromIntermediate(allocator, item);
-    }
-
-    return ret;
-}
 
 pub const MenuItemTypeError = error{MenuItemTypeUnknown};
 

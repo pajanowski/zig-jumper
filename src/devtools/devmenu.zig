@@ -116,13 +116,13 @@ pub fn DevMenu(comptime T: type) type {
         }
 
         pub fn GetMenuItem(
-            itemDefPtr: *ItemDef,
+            itemDefPtr: ItemDef,
             bounds: Rectangle,
             state: *T,
             allocator: std.mem.Allocator
         ) !*MenuItem {
-            const menuItemTypeString: []u8 = itemDefPtr.menuItemType;
-            const statePath: []u8 = itemDefPtr.statePath;
+            const menuItemTypeString = itemDefPtr.menuItemType;
+            const statePath = itemDefPtr.statePath;
             std.log.info("statePath {s}", .{statePath});
             std.log.info("menuItemTypeString {s}", .{menuItemTypeString});
 
@@ -182,15 +182,15 @@ pub fn DevMenu(comptime T: type) type {
         const ITEM_PADDING = 4;
 
         pub fn BuildMenuItems(
-            itemDefs: []*ItemDef,
+            itemDefs: []ItemDef,
             state: *T,
             allocator: std.mem.Allocator
         ) ![]*MenuItem {
             var ret = std.array_list.Managed(*MenuItem).init(allocator);
             var y: f32 = ITEM_PADDING;
-            for (itemDefs) |itemDefPtr| {
+            for (itemDefs) |itemDef| {
                 const menuItem = try GetMenuItem(
-                    itemDefPtr,
+                    itemDef,
                     Rectangle{ .width = ITEM_WIDTH, .height = ITEM_HEIGHT, .x = ITEM_PADDING + 20, .y = y },
                     state,
                     allocator
@@ -206,10 +206,18 @@ pub fn DevMenu(comptime T: type) type {
             state: *T,
             allocator: std.mem.Allocator
         ) ![]*MenuItem {
-            const menuDef = try mi.GetMenuDefFromFile(filePath, allocator);
-            defer menuDef.deinit(allocator);
+            const yml_location = filePath;
+            const yml_path = try std.fs.cwd().realpathAlloc(
+                allocator,
+                yml_location,
+            );
+            defer allocator.free(yml_path);
 
-            return BuildMenuItems(menuDef.itemDefs, state, allocator);
+            var ymlz = try Ymlz(mi.MenuDef).init(allocator);
+            const result = try ymlz.loadFile(yml_path);
+            defer ymlz.deinit(result);
+
+            return BuildMenuItems(result.itemDefs, state, allocator);
         }
     };
 }
