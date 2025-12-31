@@ -3,7 +3,13 @@ itemDefs:
     statePath: jumper.gravity
     displayValuePrefix: Gravity
     menuItemType: float
+    range:
+      upper: 0
+      lower: -400
   - elementType: SLIDER
     statePath: jumper.jumpPower
     displayValuePrefix: Jump
     menuItemType: float
+    range:
+      upper: 1000
+      lower: 0

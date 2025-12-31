@@ -92,11 +92,12 @@ pub fn DevMenu(comptime T: type) type {
             // }
             for (self.menuItems) |menuItem| {
                 var label_buf: [64]u8 = undefined;
-                if (menuItem.float.menuProperties.displayValuePrefix.len == 0) {
+                const range = menuItem.float.range;
+                if (menuItem.float.menuProperties.displayValuePrefix.len > 0) {
                     const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuItem.float.menuProperties.displayValuePrefix, menuItem.float.valuePtr.*}) catch "Gravity";
-                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, text, "", menuItem.float.valuePtr, -400, 0 );
+                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, text, "", menuItem.float.valuePtr, range.lower, range.upper);
                 } else {
-                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, "", "", menuItem.float.valuePtr, -400, 0 );
+                    _ = rg.sliderBar( menuItem.float.menuProperties.bounds, "", "", menuItem.float.valuePtr, range.lower, range.upper);
                 }
             }
 
@@ -105,6 +106,13 @@ pub fn DevMenu(comptime T: type) type {
             //     const text = std.fmt.bufPrintZ(&label_buf, "Power: {d:.1}", .{p_jumpPower.*}) catch "Gravity";
             //     _ = rg.sliderBar( .{ .x = 50, .y = 11, .width = 120, .height = 10 }, text, "", p_jumpPower, 0, 400 );
             // }
+        }
+
+        pub fn deinit(self: *Self) void {
+            for (self.menuItems) |menuItem| {
+                menuItem.deinit(self.allocator);
+            }
+            self.allocator.free(self.menuItems);
         }
 
         pub fn GetMenuItem(
@@ -129,8 +137,10 @@ pub fn DevMenu(comptime T: type) type {
             .int => {
                 ret.* = .{ .int = try allocator.create(IntMenuItem) };
                 ret.int.*.menuProperties.bounds = bounds;
-                ret.int.*.menuProperties.statePath = statePath;
+                ret.int.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
                 ret.int.*.menuProperties.elementType = .SLIDER;
+                ret.int.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
+                ret.int.*.range = itemDefPtr.range;
                 if(fieldPtrByPathExpect(i32, state, statePath)) |valuePtr| {
                     ret.int.*.valuePtr = valuePtr;
                 } else {
@@ -140,8 +150,10 @@ pub fn DevMenu(comptime T: type) type {
             .float => {
                 ret.* = .{ .float = try allocator.create(FloatMenuItem) };
                 ret.float.*.menuProperties.bounds = bounds;
-                ret.float.*.menuProperties.statePath = statePath;
+                ret.float.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
                 ret.float.*.menuProperties.elementType = .SLIDER;
+                ret.float.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
+                ret.float.*.range = itemDefPtr.range;
                 if(fieldPtrByPathExpect(f32, state, statePath)) |valuePtr| {
                     ret.float.*.valuePtr = valuePtr;
                 } else {
@@ -151,8 +163,9 @@ pub fn DevMenu(comptime T: type) type {
             .string => {
                 ret.* = .{ .string = try allocator.create(StringMenuItem) };
                 ret.string.*.menuProperties.bounds = bounds;
-                ret.string.*.menuProperties.statePath = statePath;
+                ret.string.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
                 ret.string.*.menuProperties.elementType = .SLIDER; // obv wrong but only enum atm
+                ret.string.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
                 if(fieldPtrByPathExpect([]const u8, state, statePath)) |valuePtr| {
                     ret.string.*.valuePtr = valuePtr;
                 } else {
@@ -178,7 +191,7 @@ pub fn DevMenu(comptime T: type) type {
             for (itemDefs) |itemDefPtr| {
                 const menuItem = try GetMenuItem(
                     itemDefPtr,
-                    Rectangle{ .width = ITEM_WIDTH, .height = ITEM_HEIGHT, .x = ITEM_PADDING, .y = y },
+                    Rectangle{ .width = ITEM_WIDTH, .height = ITEM_HEIGHT, .x = ITEM_PADDING + 20, .y = y },
                     state,
                     allocator
                 );
@@ -273,19 +286,8 @@ test "devmenu struct is correct" {
         },
     };
     var state = TestState{ .jumper = .{ .gravity = 1, .jumpPower = 2 } };
-    const devMenu = DevMenu(TestState).init(&state, 100, 200, std.testing.allocator);
-    defer {
-        for (devMenu.menuItems) |item| {
-            switch (item.*) {
-                .int => |val| std.testing.allocator.destroy(val),
-                .float => |val| std.testing.allocator.destroy(val),
-                .string => |val| std.testing.allocator.destroy(val),
-                .none => {},
-            }
-            std.testing.allocator.destroy(item);
-        }
-        std.testing.allocator.free(devMenu.menuItems);
-    }
+    var devMenu = DevMenu(TestState).init(&state, 100, 200, std.testing.allocator);
+    defer devMenu.deinit();
 }
 
 const testing = std.testing;
@@ -306,18 +308,16 @@ test "Get IntMenuItem and access field" {
         .elementType = @constCast("SLIDER"),
         .bounds = Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 },
         .displayValuePrefix = @constCast("Score"),
+        .range = .{ .lower = 0, .upper = 100 },
     };
 
-    const menuItem = try DevMenu(TestState).GetMenuItem(
+    var menuItem = try DevMenu(TestState).GetMenuItem(
         &itemDef,
         Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 },
         &state,
         std.testing.allocator,
     );
-    defer {
-        std.testing.allocator.destroy(menuItem.int);
-        std.testing.allocator.destroy(menuItem);
-    }
+    defer menuItem.deinit(std.testing.allocator);
 
     // Using the new helper functions
     try testing.expect(menuItem.isInt());

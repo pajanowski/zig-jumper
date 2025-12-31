@@ -122,12 +122,13 @@ pub fn main() anyerror!void {
     // const devMenu = DevMenu.init(
         // GameState, screenWidth, screenHeight, state
     // );
-    const devMenu = DevMenu(GameState).init(
+    var devMenu = DevMenu(GameState).init(
         &state,
         PLAYFIELD_HEIGHT,
         PLAYFIELD_WIDTH,
         allocator
     );
+    defer devMenu.deinit();
     // Main game loop
     while (!rl.windowShouldClose()) { // Detect window close button or ESC key
         // Update
