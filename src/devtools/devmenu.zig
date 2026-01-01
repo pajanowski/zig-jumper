@@ -57,6 +57,26 @@ pub fn DevMenu(comptime T: type) type {
             };
         }
 
+        pub fn reloadMenuItems(self: Self) !Self {
+            const filePath = "src/devtools/menu.yaml";
+
+            for(self.menuItems) |menuItem| {
+                self.allocator.destroy(menuItem);
+            }
+            self.allocator.free(self.menuItems);
+
+            const menuItems = try GetMenuItemsFromFile(filePath, self.state, self.allocator);
+
+            return Self{
+                .state = self.state,
+                .windowHeight = self.windowHeight,
+                .windowWidth = self.windowWidth,
+                .menuItems = menuItems,
+                .allocator = self.allocator
+            };
+
+        }
+
         pub fn draw(self: Self) void {
             _ = rl.Rectangle.init(
                 0, 0,

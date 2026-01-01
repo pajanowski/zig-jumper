@@ -185,6 +185,13 @@ pub fn main() anyerror!void {
 
         if (devMenuEnabled) {
             devMenu.draw();
+            if(rl.isKeyPressed(rl.KeyboardKey.r)) {
+                if(devMenu.reloadMenuItems()) |newDevMenu| {
+                    devMenu = newDevMenu;
+                } else |err| {
+                    std.log.err("Failed to reload menu items {any}", .{err});
+                }
+            }
         }
 
     }
