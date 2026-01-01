@@ -1,3 +1,8 @@
+drawSettings:
+  paddingY: 5
+  startX: 25
+  width: 75
+  height: 10
 itemDefs:
   - elementType: SLIDER
     statePath: jumper.gravity
@@ -20,3 +25,17 @@ itemDefs:
     range:
       upper: 1000
       lower: 0
+  - elementType: LABEL
+    statePath: jumper.vel.y
+    displayValuePrefix: Vel Y
+    menuItemType: float
+    range:
+      upper: -1
+      lower: -1
+  - elementType: LABEL
+    statePath: jumper.xSpeed
+    displayValuePrefix: X Speed
+    menuItemType: int
+    range:
+      upper: -1
+      lower: -1

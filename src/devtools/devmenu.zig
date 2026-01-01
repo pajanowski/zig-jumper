@@ -103,6 +103,9 @@ pub fn DevMenu(comptime T: type) type {
                     const range = menuItem.getRange();
                     drawSlideBar(menuProperties, range, valuePtr);
                 },
+                .LABEL => {
+                    drawLabel(menuProperties, valuePtr);
+                },
                 else => {}
             }
         }
@@ -114,6 +117,9 @@ pub fn DevMenu(comptime T: type) type {
                     .VALUE_BOX => {
                         const range = menuItem.getRange();
                         drawValueBox(menuProperties, range, valuePtr);
+                    },
+                    .LABEL => {
+                        drawLabel(menuProperties, valuePtr);
                     },
                     else => {}
                 }
@@ -135,6 +141,12 @@ pub fn DevMenu(comptime T: type) type {
             var label_buf: [64]u8 = undefined;
             const text = formatLabel(&label_buf, menuProperties.displayValuePrefix, valuePtr.*);
             _ = rg.valueBox(menuProperties.bounds, text, valuePtr, @intFromFloat(range.lower), @intFromFloat(range.upper), true);
+        }
+
+        fn drawLabel(menuProperties: mi.MenuProperties, valuePtr: anytype) void {
+            var label_buf: [64]u8 = undefined;
+            const text = formatLabel(&label_buf, menuProperties.displayValuePrefix, valuePtr.*);
+            _ = rg.label(menuProperties.bounds, text);
         }
 
         pub fn deinit(self: *Self) void {
@@ -212,49 +224,20 @@ pub fn DevMenu(comptime T: type) type {
             return ret;
         }
 
-        // const VALID_INT_UI_ELEMENTS = [_]mi.UiElementType{mi.UiElementType.SLIDER, mi.UiElementType.VALUE_BOX};
-        // const VALID_FLOAT_UI_ELEMENTS = [_]mi.UiElementType{mi.UiElementType.SLIDER};
-        // const VALID_STRING_UI_ELEMENTS = [_]mi.UiElementType{};
-
-        // fn getValidUiElementType(uiElementType: []const u8, validOnes: []mi.UiElementType) !mi.UiElementType {
-        //     const optionalParse = std.meta.stringToEnum(mi.UiElementType, uiElementType);
-        //     if (optionalParse) |parsed|  {
-        //         std.mem.containsAtLeast(mi.UiElementType, validOnes, 1, parsed);
-        //     } else {
-        //         return mi.UiElementError.DoesNotExist;
-        //     }
-        // }
-        // fn getValidUiElementTypeByMenuType(menuItemType: MenuItemType, uiElementType: []const u8) !mi.UiElementType {
-        //     switch(menuItemType) {
-        //         .int => {
-        //            return try getValidUiElementType(uiElementType, &VALID_INT_UI_ELEMENTS);
-        //         },
-        //         .float => {
-        //             return try getValidUiElementType(uiElementType, &VALID_FLOAT_UI_ELEMENTS);
-        //         },
-        //         .string => {
-        //             return try getValidUiElementType(uiElementType, &VALID_STRING_UI_ELEMENTS);
-        //         },
-        //
-        //     }
-        // }
-
-        const ITEM_WIDTH = 50;
-        const ITEM_HEIGHT = 10;
-        const ITEM_PADDING = 4;
-
         pub fn BuildMenuItems(
-            itemDefs: []mi.YamlItemDef,
+            menuDef: mi.YamlMenuDef,
             state: *T,
             allocator: std.mem.Allocator
         ) ![]*MenuItem {
             var ret = std.array_list.Managed(*MenuItem).init(allocator);
-            var y: f32 = ITEM_PADDING;
+            const drawSettings = menuDef.drawSettings;
+            var y: f32 = drawSettings.paddingY;
             var menuError: ?anyerror = undefined;
+            const itemDefs = menuDef.itemDefs;
             for (itemDefs) |itemDef| {
                 if(GetMenuItem(
                     itemDef,
-                    Rectangle{ .width = ITEM_WIDTH, .height = ITEM_HEIGHT, .x = ITEM_PADDING + 20, .y = y },
+                    Rectangle{ .width = drawSettings.width, .height = drawSettings.height, .x = drawSettings.startX, .y = y },
                     state,
                     allocator
                 )) |menuItem| {
@@ -262,7 +245,7 @@ pub fn DevMenu(comptime T: type) type {
                 } else |err| {
                     menuError = err;
                 }
-                y = y + ITEM_HEIGHT + ITEM_PADDING;
+                y = y + drawSettings.height + drawSettings.paddingY;
             }
 
             return try ret.toOwnedSlice();
@@ -283,15 +266,8 @@ pub fn DevMenu(comptime T: type) type {
             var ymlz = try Ymlz(mi.YamlMenuDef).init(allocator);
             const result = try ymlz.loadFile(yml_path);
             defer ymlz.deinit(result);
-            for(result.itemDefs, 0..) |itemDef, index| {
-                std.debug.print("{d}\n", .{index});
-                std.debug.print("display {s}\n", .{itemDef.displayValuePrefix});
-                std.debug.print("elementType {s}\n", .{itemDef.elementType});
-                std.debug.print("menuItem {s}\n", .{itemDef.menuItemType});
-                std.debug.print("statePath {s}\n", .{itemDef.statePath});
-            }
 
-            return BuildMenuItems(result.itemDefs, state, allocator);
+            return BuildMenuItems(result, state, allocator);
         }
     };
 }

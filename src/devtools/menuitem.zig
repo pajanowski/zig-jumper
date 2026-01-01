@@ -8,11 +8,46 @@ const Ymlz = @import("ymlz").Ymlz;
 
 pub const UiElementType = enum {
     SLIDER,
-    VALUE_BOX
+    VALUE_BOX,
+    LABEL
 };
 
 pub const UiElementError = error {
     DoesNotExist
+};
+
+pub const YamlItemDef = struct{
+    menuItemType: []const u8,
+    statePath: []const u8,
+    elementType: []const u8,
+    range: Range,
+    displayValuePrefix: []const u8,
+};
+
+pub const DrawSettings = struct {
+    startX: f32,
+    width: f32,
+    height: f32,
+    paddingY: f32,
+};
+
+pub const YamlMenuDef = struct {
+    drawSettings: DrawSettings,
+    itemDefs: []YamlItemDef
+};
+
+pub const ItemDef = struct {
+    menuItemType: []const u8,
+    statePath: []const u8,
+    elementType: []const u8,
+    bounds: Rectangle,
+    displayValuePrefix: []const u8,
+    range: Range,
+};
+
+pub const MenuItemTypeError = error{
+    MenuItemTypeUnknown,
+    UiElementTypeNotAllowed
 };
 
 pub const MenuItemType = enum { int, float, string };
@@ -184,31 +219,7 @@ pub const MenuDef = struct {
 };
 
 
-pub const ItemDef = struct {
-    menuItemType: []const u8,
-    statePath: []const u8,
-    elementType: []const u8,
-    bounds: Rectangle,
-    displayValuePrefix: []const u8,
-    range: Range,
-};
 
-pub const YamlItemDef = struct{
-    menuItemType: []const u8,
-    statePath: []const u8,
-    elementType: []const u8,
-    range: Range,
-    displayValuePrefix: []const u8,
-};
-
-pub const YamlMenuDef = struct {
-    itemDefs: []YamlItemDef
-};
-
-pub const MenuItemTypeError = error{
-    MenuItemTypeUnknown,
-    UiElementTypeNotAllowed
-};
 
 const testing = std.testing;
 const expect = testing.expect;
