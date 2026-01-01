@@ -125,7 +125,7 @@ pub fn DevMenu(comptime T: type) type {
         }
 
         pub fn GetMenuItem(
-            itemDef: ItemDef,
+            itemDef: mi.YamlItemDef,
             bounds: Rectangle,
             state: *T,
             allocator: std.mem.Allocator
@@ -224,7 +224,7 @@ pub fn DevMenu(comptime T: type) type {
         const ITEM_PADDING = 4;
 
         pub fn BuildMenuItems(
-            itemDefs: []ItemDef,
+            itemDefs: []mi.YamlItemDef,
             state: *T,
             allocator: std.mem.Allocator
         ) ![]*MenuItem {
@@ -242,7 +242,7 @@ pub fn DevMenu(comptime T: type) type {
                 } else |err| {
                     menuError = err;
                 }
-                y = ITEM_HEIGHT + ITEM_PADDING;
+                y = y + ITEM_HEIGHT + ITEM_PADDING;
             }
 
             return try ret.toOwnedSlice();
@@ -260,9 +260,16 @@ pub fn DevMenu(comptime T: type) type {
             );
             defer allocator.free(yml_path);
 
-            var ymlz = try Ymlz(mi.MenuDef).init(allocator);
+            var ymlz = try Ymlz(mi.YamlMenuDef).init(allocator);
             const result = try ymlz.loadFile(yml_path);
             defer ymlz.deinit(result);
+            for(result.itemDefs, 0..) |itemDef, index| {
+                std.debug.print("{d}\n", .{index});
+                std.debug.print("display {s}\n", .{itemDef.displayValuePrefix});
+                std.debug.print("elementType {s}\n", .{itemDef.elementType});
+                std.debug.print("menuItem {s}\n", .{itemDef.menuItemType});
+                std.debug.print("statePath {s}\n", .{itemDef.statePath});
+            }
 
             return BuildMenuItems(result.itemDefs, state, allocator);
         }

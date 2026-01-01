@@ -15,6 +15,7 @@ pub const Jumper = struct {
     jumpPower: f32 = JUMP_HEIGHT,
 
     bounces: u16 = 0,
+    xSpeed: i32 = 5,
 
 
     pub fn init(pos: Vector2, jumperFloorPos: f32, jumperSize: f32) Jumper {

@@ -13,14 +13,10 @@ itemDefs:
     range:
       upper: 1000
       lower: 0
-  - elementType: SLIDER
-    statePath: jumper.jumpPower
-    displayValuePrefix: Jump
+  - elementType: VALUE_BOX
+    statePath: jumper.xSpeed
+    displayValuePrefix: X Speed
     menuItemType: int
     range:
       upper: 1000
       lower: 0
-  - elementType: SLIDER
-    statePath: jumper.jumpPower
-    displayValuePrefix: Jump
-    menuItemType: string

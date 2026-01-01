@@ -34,10 +34,10 @@ const Experiment = struct {
 
 pub fn updateJumper(jumper: *Jumper) void {
     if (rl.isKeyDown(rl.KeyboardKey.right)) {
-        jumper.rec.x += 1;
+        jumper.rec.x += @floatFromInt(jumper.xSpeed);
     }
     if (rl.isKeyDown(rl.KeyboardKey.left)) {
-        jumper.rec.x -= 1;
+        jumper.rec.x -= @floatFromInt(jumper.xSpeed);
     }
     const leftStart: f32 = 0;
     const rightStart: f32 = PLAYFIELD_WIDTH - JUMPER_SIZE;

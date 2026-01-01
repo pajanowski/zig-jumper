@@ -193,6 +193,18 @@ pub const ItemDef = struct {
     range: Range,
 };
 
+pub const YamlItemDef = struct{
+    menuItemType: []const u8,
+    statePath: []const u8,
+    elementType: []const u8,
+    range: Range,
+    displayValuePrefix: []const u8,
+};
+
+pub const YamlMenuDef = struct {
+    itemDefs: []YamlItemDef
+};
+
 pub const MenuItemTypeError = error{
     MenuItemTypeUnknown,
     UiElementTypeNotAllowed
