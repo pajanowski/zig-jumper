@@ -8,6 +8,11 @@ const Ymlz = @import("ymlz").Ymlz;
 
 pub const UiElementType = enum {
     SLIDER,
+    VALUE_BOX
+};
+
+pub const UiElementError = error {
+    DoesNotExist
 };
 
 pub const MenuItemType = enum { int, float, string };
@@ -33,7 +38,7 @@ pub const Range = struct {
 };
 
 pub const MenuProperties = struct {
-    elementType: UiElementType,
+    elementType: ?UiElementType,
     bounds: Rectangle, // Not implemented
     statePath: []const u8, // NotImplemented
     displayValuePrefix: []const u8,
@@ -188,7 +193,10 @@ pub const ItemDef = struct {
     range: Range,
 };
 
-pub const MenuItemTypeError = error{MenuItemTypeUnknown};
+pub const MenuItemTypeError = error{
+    MenuItemTypeUnknown,
+    UiElementTypeNotAllowed
+};
 
 const testing = std.testing;
 const expect = testing.expect;

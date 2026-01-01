@@ -65,32 +65,56 @@ pub fn DevMenu(comptime T: type) type {
             for (self.menuItems) |menuItem| {
                 switch(menuItem.*) {
                     .float => |active| {
-                        drawElements(menuItem, active.valuePtr);
+                        drawFloatElements(menuItem, active.valuePtr);
                     },
-                    .int => std.log.warn("Int not implemented yet", .{}),
+                    .int => |active| {
+                        // std.log.info("int menu item {s}\n", .{menuItem.int.menuProperties.displayValuePrefix});
+                        drawIntElements(menuItem, active.valuePtr);
+                    },
                     .string => std.log.warn("String not implemented yet", .{}),
                 }
             }
         }
 
-        fn drawElements(menuItem: *mi.MenuItem, valuePtr: anytype) void {
+        fn drawFloatElements(menuItem: *mi.MenuItem, valuePtr: anytype) void {
             const menuProperties = menuItem.getMenuProperties();
-            switch(menuProperties.elementType) {
+            switch(menuProperties.elementType.?) {
                 .SLIDER => {
                     const range = menuItem.getRange();
                     drawSlideBar(menuProperties, range, valuePtr);
+                },
+                else => {}
+            }
+        }
+
+        fn drawIntElements(menuItem: *mi.MenuItem, valuePtr: *i32) void {
+            const menuProperties = menuItem.getMenuProperties();
+            if (menuProperties.elementType) |elementType| {
+                switch(elementType) {
+                    .VALUE_BOX => {
+                        const range = menuItem.getRange();
+                        drawValueBox(menuProperties, range, valuePtr);
+                    },
+                    else => {}
                 }
             }
         }
 
+        fn formatLabel(buf: []u8, prefix: []const u8, value: anytype) [:0]const u8 {
+            if (prefix.len == 0) return "";
+            return std.fmt.bufPrintZ(buf, "{s}: {d:.1}", .{ prefix, value }) catch "Gravity";
+        }
+
         fn drawSlideBar(menuProperties: mi.MenuProperties, range: mi.Range, valuePtr: anytype) void {
             var label_buf: [64]u8 = undefined;
-            if (menuProperties.displayValuePrefix.len > 0) {
-                const text = std.fmt.bufPrintZ(&label_buf, "{s}: {d:.1}", .{menuProperties.displayValuePrefix, valuePtr.*}) catch "Gravity";
-                _ = rg.sliderBar( menuProperties.bounds, text, "", valuePtr, range.lower, range.upper);
-            } else {
-                _ = rg.sliderBar( menuProperties.bounds, "", "", valuePtr, range.lower, range.upper);
-            }
+            const text = formatLabel(&label_buf, menuProperties.displayValuePrefix, valuePtr.*);
+            _ = rg.sliderBar(menuProperties.bounds, text, "", valuePtr, range.lower, range.upper);
+        }
+
+        fn drawValueBox(menuProperties: mi.MenuProperties, range: mi.Range, valuePtr: *i32) void {
+            var label_buf: [64]u8 = undefined;
+            const text = formatLabel(&label_buf, menuProperties.displayValuePrefix, valuePtr.*);
+            _ = rg.valueBox(menuProperties.bounds, text, valuePtr, @intFromFloat(range.lower), @intFromFloat(range.upper), true);
         }
 
         pub fn deinit(self: *Self) void {
@@ -101,15 +125,16 @@ pub fn DevMenu(comptime T: type) type {
         }
 
         pub fn GetMenuItem(
-            itemDefPtr: ItemDef,
+            itemDef: ItemDef,
             bounds: Rectangle,
             state: *T,
             allocator: std.mem.Allocator
         ) !*MenuItem {
-            const menuItemTypeString = itemDefPtr.menuItemType;
-            const statePath = itemDefPtr.statePath;
+            const menuItemTypeString = itemDef.menuItemType;
+            const statePath = itemDef.statePath;
             std.log.info("statePath {s}", .{statePath});
             std.log.info("menuItemTypeString {s}", .{menuItemTypeString});
+            std.log.info("elementType {s}", .{itemDef.elementType});
 
             const menuItemType = std.meta.stringToEnum(MenuItemType, menuItemTypeString);
             if (menuItemType == null) {
@@ -123,9 +148,10 @@ pub fn DevMenu(comptime T: type) type {
                 ret.* = .{ .int = try allocator.create(IntMenuItem) };
                 ret.int.*.menuProperties.bounds = bounds;
                 ret.int.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
-                ret.int.*.menuProperties.elementType = .SLIDER;
-                ret.int.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
-                ret.int.*.range = itemDefPtr.range;
+                // ret.int.*.menuProperties.elementType = try getValidUiElementTypeByMenuType(.int, itemDefPtr.elementType);
+                ret.int.*.menuProperties.elementType = std.meta.stringToEnum(mi.UiElementType, itemDef.elementType);
+                ret.int.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDef.displayValuePrefix);
+                ret.int.*.range = itemDef.range;
                 if(fieldPtrByPathExpect(i32, state, statePath)) |valuePtr| {
                     ret.int.*.valuePtr = valuePtr;
                 } else {
@@ -137,9 +163,10 @@ pub fn DevMenu(comptime T: type) type {
                 ret.* = .{ .float = try allocator.create(FloatMenuItem) };
                 ret.float.*.menuProperties.bounds = bounds;
                 ret.float.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
-                ret.float.*.menuProperties.elementType = .SLIDER;
-                ret.float.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
-                ret.float.*.range = itemDefPtr.range;
+                // ret.float.*.menuProperties.elementType = try getValidUiElementTypeByMenuType(.float, itemDefPtr.elementType);
+                ret.float.*.menuProperties.elementType = std.meta.stringToEnum(mi.UiElementType, itemDef.elementType);
+                ret.float.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDef.displayValuePrefix);
+                ret.float.*.range = itemDef.range;
                 if(fieldPtrByPathExpect(f32, state, statePath)) |valuePtr| {
                     ret.float.*.valuePtr = valuePtr;
                 } else {
@@ -151,8 +178,9 @@ pub fn DevMenu(comptime T: type) type {
                 ret.* = .{ .string = try allocator.create(StringMenuItem) };
                 ret.string.*.menuProperties.bounds = bounds;
                 ret.string.*.menuProperties.statePath = try allocator.dupe(u8, statePath);
-                ret.string.*.menuProperties.elementType = .SLIDER; // obv wrong but only enum atm
-                ret.string.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDefPtr.displayValuePrefix);
+                // ret.string.*.menuProperties.elementType = try getValidUiElementTypeByMenuType(.string, itemDefPtr.elementType);
+                ret.string.*.menuProperties.elementType = std.meta.stringToEnum(mi.UiElementType, itemDef.elementType);
+                ret.string.*.menuProperties.displayValuePrefix = try allocator.dupe(u8, itemDef.displayValuePrefix);
                 if(fieldPtrByPathExpect([]const u8, state, statePath)) |valuePtr| {
                     ret.string.*.valuePtr = valuePtr;
                 } else {
@@ -163,6 +191,33 @@ pub fn DevMenu(comptime T: type) type {
             }
             return ret;
         }
+
+        // const VALID_INT_UI_ELEMENTS = [_]mi.UiElementType{mi.UiElementType.SLIDER, mi.UiElementType.VALUE_BOX};
+        // const VALID_FLOAT_UI_ELEMENTS = [_]mi.UiElementType{mi.UiElementType.SLIDER};
+        // const VALID_STRING_UI_ELEMENTS = [_]mi.UiElementType{};
+
+        // fn getValidUiElementType(uiElementType: []const u8, validOnes: []mi.UiElementType) !mi.UiElementType {
+        //     const optionalParse = std.meta.stringToEnum(mi.UiElementType, uiElementType);
+        //     if (optionalParse) |parsed|  {
+        //         std.mem.containsAtLeast(mi.UiElementType, validOnes, 1, parsed);
+        //     } else {
+        //         return mi.UiElementError.DoesNotExist;
+        //     }
+        // }
+        // fn getValidUiElementTypeByMenuType(menuItemType: MenuItemType, uiElementType: []const u8) !mi.UiElementType {
+        //     switch(menuItemType) {
+        //         .int => {
+        //            return try getValidUiElementType(uiElementType, &VALID_INT_UI_ELEMENTS);
+        //         },
+        //         .float => {
+        //             return try getValidUiElementType(uiElementType, &VALID_FLOAT_UI_ELEMENTS);
+        //         },
+        //         .string => {
+        //             return try getValidUiElementType(uiElementType, &VALID_STRING_UI_ELEMENTS);
+        //         },
+        //
+        //     }
+        // }
 
         const ITEM_WIDTH = 50;
         const ITEM_HEIGHT = 10;
