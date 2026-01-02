@@ -1,8 +1,8 @@
 //! By convention, root.zig is the root source file when making a library.
 const std = @import("std");
 const rl = @import("raylib");
-const DevMenu = @import("devtools/devmenu.zig");
-const MenuItem = @import("devtools/menuitem.zig");
+const DevMenu = @import("devtools/raymenu.zig");
+const MenuItem = @import("devtools/raymenuutils.zig");
 
 pub fn bufferedPrint() !void {
     // Stdout is for the actual output of your application, for example if you

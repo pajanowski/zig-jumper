@@ -4,7 +4,7 @@ const Vector2 = rl.Vector2;
 const Jumper = @import("jumper.zig").Jumper;
 const Platform = @import("platform.zig").Platform;
 const std = @import("std");
-const DevMenu = @import("devtools/devmenu.zig").DevMenu;
+const RayMenu = @import("devtools/raymenu.zig").RayMenu;
 const GameState = @import("gamestate.zig").GameState;
 
 const PLAYFIELD_WIDTH: i32 = 100;
@@ -122,7 +122,7 @@ pub fn main() anyerror!void {
     // const devMenu = DevMenu.init(
         // GameState, screenWidth, screenHeight, state
     // );
-    var devMenu = DevMenu(GameState).init(
+    var devMenu = RayMenu(GameState).init(
         &state,
         PLAYFIELD_HEIGHT,
         PLAYFIELD_WIDTH,

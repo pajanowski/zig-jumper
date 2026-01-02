@@ -4,7 +4,7 @@ const rg = @import("raygui");
 const rl = @import("raylib");
 const Rectangle = rl.Rectangle;
 
-const mi = @import("menuitem.zig");
+const mi = @import("raymenuutils.zig");
 const MenuItem = mi.MenuItem;
 const ItemDef = mi.ItemDef;
 const MenuItemType = mi.MenuItemType;
@@ -19,7 +19,7 @@ pub const DevMenuError = error{
     StateFieldNotFound
 };
 
-pub fn DevMenu(comptime T: type) type {
+pub fn RayMenu(comptime T: type) type {
     return struct {
         const Self = @This();
 
@@ -344,7 +344,7 @@ test "devmenu struct is correct" {
         },
     };
     var state = TestState{ .jumper = .{ .gravity = 1, .jumpPower = 2 } };
-    var devMenu = DevMenu(TestState).init(&state, 100, 200, std.testing.allocator);
+    var devMenu = RayMenu(TestState).init(&state, 100, 200, std.testing.allocator);
     defer devMenu.deinit();
 }
 
@@ -369,7 +369,7 @@ test "Get IntMenuItem and access field" {
         .range = .{ .lower = 0, .upper = 100 },
     };
 
-    var menuItem = try DevMenu(TestState).GetMenuItem(
+    var menuItem = try RayMenu(TestState).GetMenuItem(
         &itemDef,
         Rectangle{ .height = 0, .width = 1, .x = 2, .y = 3 },
         &state,
